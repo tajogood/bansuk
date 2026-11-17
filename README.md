@@ -1,1 +1,35 @@
-# bansuk
+# BANSUK × AI — 협업 제안 & 인터랙티브 데모
+
+반석엘티씨의 가축 질병 검사·방역 전문성과 IT·AI 기술의 협업 가능성을 설명하는 **독립적인 제안 및 시연 사이트**입니다.
+
+## 온라인 페이지
+
+**[제안서 보기](https://tajogood.github.io/bansuk/)**
+
+### 6개 클릭형 데모
+
+| 아이템 | 데모 URL | 시연 기능 |
+|---|---|---|
+| AI 검사보고서 자동화 | [검사보고서 데모](https://tajogood.github.io/bansuk/demos/lab.html) | 검사결과 등록/수정, CSV 업로드, 보고서 생성 |
+| 농장 방역관리 SaaS | [방역관리 데모](https://tajogood.github.io/bansuk/demos/biosecurity.html) | 방역 체크리스트, 점검 이력, 개선 상태 |
+| AI 농장 건강관리 | [농장 건강관리 데모](https://tajogood.github.io/bansuk/demos/health.html) | 가상 건강지표, 농장 비교, 추세 차트 |
+| AI 질병 위험지도 | [위험지도 데모](https://tajogood.github.io/bansuk/demos/risk.html) | 가상 지도 핀, 위험 표시 기준 조정 |
+| 수의사 AI 업무비서 | [수의사 업무비서 데모](https://tajogood.github.io/bansuk/demos/vet.html) | 방문 메모 구조화, 후속 점검 관리 |
+| 지자체 스마트 방역 | [지자체 데모](https://tajogood.github.io/bansuk/demos/public.html) | 시료·점검 이력, 담당자 배정, 업무 상태 |
+
+각 데모에서 검색, 상태 필터, 데이터 등록·수정·삭제, 분석 초안, 보고서 열람, CSV 내보내기, 데이터 초기화, 브라우저 내 저장을 제공합니다.
+
+## 기술 구성
+
+정적 HTML + CSS + JavaScript 기반의 GitHub Pages 호스팅입니다. **백엔드나 외부 AI API는 연결하지 않습니다.** 가상 데이터와 단순 규칙 기반 분석 초안을 사용합니다.
+
+데모 변경 이력은 사용자 브라우저의 localStorage에만 저장되며, 각 페이지의 **초기화** 버튼으로 기본값을 복원할 수 있습니다.
+
+## 유의사항
+
+- 반석엘티씨 공식 제품 또는 확정된 협력관계를 나타내지 않습니다.
+- 농장명·좌표·검사결과·위험 점수·담당자·기록은 모두 **가상 데이터**입니다.
+- 검사 결과 해석, 질병 진단, 법정 신고, 실제 문자·이메일 발송 기능을 수행하지 않습니다.
+- 상용화 시 실제 데이터 이용권·보안체계·수의학적 검증·신고 절차가 별도로 필요합니다.
+
+배포: GitHub → **Settings → Pages → Deploy from a branch → main / (root)**.
