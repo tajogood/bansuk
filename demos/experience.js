@@ -294,3 +294,41 @@ if(form.id==='wfNoteForm'){const text=String(fd.get('note')||'').trim();if(!text
 if(form.id==='wfTaskForm'){const title=String(fd.get('title')||'').trim();if(!title)return;c.tasks.push({title,done:false});wfLog('후속 작업 등록: '+title);closeModal();renderBody();toast('후속 업무를 등록했습니다.');return}
 if(form.id==='wfObservationForm'){const obs={date:String(fd.get('date')),egg:Number(fd.get('egg')),mortality:Number(fd.get('mortality')),temperature:Number(fd.get('temperature'))};if(obs.egg<0||obs.egg>100||obs.mortality<0)return toast('관찰값 범위를 확인해주세요.');c.observations.push(obs);c.observations.sort((a,b)=>a.date.localeCompare(b.date));selected().value=obs.egg;wfLog('사육 관찰 기록 추가: '+obs.date);closeModal();renderBody();toast('일일 관찰기록을 저장했습니다.');return}
 });
+
+
+
+/* Distinct product workspaces: six demo products now have separate task-first UIs.
+   Base data flows and event actions remain unchanged. */
+(function(){
+  var theme={
+    lab:['LABORATORY OPERATIONS','검체 접수부터 QC와 승인까지','검사실에서 검체·장비 결과·승인 단계를 처리합니다.','◈'],
+    biosecurity:['FIELD BIOSECURITY','현장 방역 점검과 개선조치','체크리스트를 작성하고 미흡사항을 개선·재점검합니다.','☑'],
+    health:['DAILY FARM JOURNAL','농장 일일 관찰일지','산란율·폐사·축사환경 변화와 후속 관찰을 기록합니다.','〽'],
+    risk:['GEO RISK EXPLORER','지역 위험 시나리오 지도','지역 선택과 가중치 조정으로 가상 상황을 비교합니다.','◎'],
+    vet:['VETERINARY NOTEBOOK','수의사 방문·SOAP 기록','현장 원문 메모를 S·O·A·P로 정리하고 재방문을 예약합니다.','✎'],
+    public:['PUBLIC CASE MANAGEMENT','지자체 방역 사건처리 보드','접수·배정·검사·검토·종결을 단계별로 관리합니다.','▦']
+  };
+  function hero(k){var t=theme[k];return '<div class="ux-hero ux-hero-'+k+'"><div class="ux-hero-icon">'+t[3]+'</div><div class="ux-hero-text"><small>'+t[0]+'</small><h2>'+t[1]+'</h2><p>'+t[2]+'</p></div><button type="button" class="btn btn-primary" id="goRequirements">필요 데이터 보기 ↗</button></div>';}
+  function selectedHead(r,c){return '<div class="ux-selection"><div><small>선택한 시연 업무 · '+esc(r.id)+'</small><h3>'+esc(KEY==='risk'?r.region:r.farm)+'</h3><span>'+esc(r.type)+' · '+esc(r.date)+'</span></div><div class="ux-selection-actions"><b>'+esc(progressLabel(c))+'</b><button type="button" class="btn btn-tiny" id="wfEditCase">기본정보 수정</button><button type="button" class="btn btn-tiny" id="wfCaseDoc">업무 문서</button></div></div>';}
+  function forms(r,c){return '<details class="ux-form-details" open><summary>업무 단계별 입력 · 저장 · 진행</summary>'+wfGenericCard(r,c)+'</details>';}
+  function farmers(){return '<div class="ux-farm-list">'+rows.map(function(r){return '<button type="button" class="ux-farm '+(state.selected===r.id?'current':'')+'" data-wf-select="'+esc(r.id)+'"><b>'+esc(r.farm)+'</b><span>'+esc(progressLabel(wfGet(r.id)))+'</span></button>';}).join('')+'</div>';}
+  function notes(c){return wfNotePanel(c);}
+  function observations(c){return '<div class="experience-card ux-journal"><div class="card-heading"><div><span class="ui-kicker">DAILY NOTES</span><h3>날짜별 사육 관찰</h3></div></div>'+((c.observations||[]).slice(-8).reverse().map(function(o){return '<div class="ux-journal-row"><b>'+esc(o.date)+'</b><div>산란율 <strong>'+esc(o.egg)+'%</strong><small>폐사 '+esc(o.mortality)+'수 / 온도 '+esc(o.temperature??'—')+'°C</small></div></div>';}).join('')||'<p class="smalltext">아직 기록이 없습니다.</p>')+'</div>';}
+  function board(){return '<div class="ux-board"><div class="ux-board-head"><h3>접수 업무 칸반</h3><button type="button" class="btn btn-primary btn-tiny" id="wfAddCase">＋ 새 업무 접수</button></div><div class="ux-board-columns">'+toStages().map(function(t,i){var items=rows.filter(function(r){return wfGet(r.id).step===i;});return '<div class="ux-board-column"><h4>'+esc(t)+' <span>'+items.length+'</span></h4>'+items.map(function(r){return '<button type="button" class="ux-case '+(state.selected===r.id?'current':'')+'" data-wf-select="'+esc(r.id)+'"><b>'+esc(r.farm)+'</b><small>'+esc(r.id)+' · '+esc(r.region)+'</small><span>'+esc(r.owner)+'</span></button>';}).join('')+'</div>';}).join('')+'</div></div>';}
+  workflowPage=function(){
+    var r=selected();if(!r)return '<div class="experience-empty"><h2>새 업무를 등록해 보세요</h2><button type="button" class="btn btn-primary" id="wfAddCase">＋ 기록 등록</button></div>';
+    var c=wfCurrent(),k=KEY,h=hero(k),sel=selectedHead(r,c),f=forms(r,c),sp=wfSpecial(r,c),n=notes(c),q=workQueue();
+    if(k==='lab')return '<div class="ux-demo ux-lab">'+h+'<div class="ux-lab-strip"><div>진행중인 검사 <strong>'+rows.filter(function(x){return wfGet(x.id).step<4;}).length+'</strong></div><div>승인 완료 <strong>'+rows.filter(function(x){return wfGet(x.id).step>=4;}).length+'</strong></div><div>등록 검체 업무 <strong>'+rows.length+'</strong></div></div><div class="ux-lab-layout"><aside>'+q+'</aside><main>'+sel+sp+f+n+'</main></div></div>';
+    if(k==='biosecurity')return '<div class="ux-demo ux-biosecurity">'+h+farmers()+'<div class="ux-bio-layout"><div>'+sel+sp+'</div><div>'+f+n+'</div></div></div>';
+    if(k==='health')return '<div class="ux-demo ux-health">'+h+farmers()+sel+'<div class="ux-health-layout">'+observations(c)+sp+'</div><div class="ux-health-bottom">'+f+n+'</div></div>';
+    if(k==='risk')return '<div class="ux-demo ux-risk">'+h+'<div class="ux-risk-layout"><div>'+sel+sp+'</div><div>'+q+'</div></div><div class="ux-risk-bottom">'+f+n+'</div></div>';
+    if(k==='vet')return '<div class="ux-demo ux-vet">'+h+'<div class="ux-vet-layout"><div>'+q+'</div><div>'+sel+'<section class="ux-vet-paper"><small>FIELD NOTE · 방문 원문</small><p>'+esc(c.values.rawNote||'현장 관찰 내용을 기록하고 후속 점검 일정을 정리합니다.')+'</p><button type="button" class="btn btn-primary" id="wfVetDraft">SOAP 초안 작성</button></section>'+sp+f+n+'</div></div></div>';
+    return '<div class="ux-demo ux-public">'+h+board()+'<div class="ux-public-detail">'+sel+sp+f+n+'</div></div>';
+  };
+  var originalReportPanel=reportPanel;
+  reportPanel=function(){if(KEY!=='lab')return originalReportPanel();
+    return '<div class="ux-report-embed"><div class="ux-report-title"><div><span class="ui-kicker">REPORTING WORKSPACE</span><h2>보고서 초안</h2><p>검사자·농장·시즌·지역·배치 등 8개 분석 유형, 그래프·표·PDF 저장</p></div></div><iframe id="labReportFrame" class="ux-report-frame" src="./reports.html?embed=1" title="검사 분석보고서 작성" loading="eager"></iframe></div>';
+  };
+  window.addEventListener('message',function(event){var iframe=document.getElementById('labReportFrame');if(!iframe||event.origin!==location.origin||event.source!==iframe.contentWindow||!event.data||event.data.kind!=='bansuk-report-height')return;var ht=Math.max(900,Math.min(18000,Number(event.data.height)||0));if(Math.abs(iframe.offsetHeight-ht)>18)iframe.style.height=ht+'px';});
+  if(state.view==='workspace'||(KEY==='lab'&&state.view==='reports'))renderBody();
+})();
