@@ -19,7 +19,18 @@
 @media(max-width:800px){.shell{display:block}.rail{position:fixed;left:-280px;top:0;width:260px;transition:.2s;box-shadow:0 30px 50px #0002}.rail.open{left:0}.mobile-rail{display:inline-flex}.topbar{padding:12px 16px;min-height:72px;height:auto}.main{padding:22px 16px 60px}.page-heading{align-items:start;flex-direction:column}.category-list{grid-template-columns:1fr 1fr}.chart-grid,.report-review{grid-template-columns:1fr}.chart-card{min-height:220px}.heading-actions{width:100%}.report-head{padding:24px}.report-head h2{font-size:25px}}
 @media(max-width:520px){.category-list{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.report-body{padding:16px}.stats{gap:8px}.stat{padding:13px}.stat strong{font-size:24px}.topbar .tag{display:none}.user-select{max-width:155px;font-size:12px}.main{padding:18px 11px 40px}.report-head{padding:22px 17px}.report-head h2{font-size:22px}.page-heading h1{font-size:28px}.modal{padding:18px}.catalog-grid{grid-template-columns:1fr}.heat-row{grid-template-columns:75px repeat(6,minmax(0,1fr));gap:3px}.heat-row b{font-size:10px;padding:9px 2px}.action-row .btn{flex:1}.report-meta span{font-size:12px}.stat label{font-size:13px}}
 @media print{.rail,.topbar,.sidebar-panel,.report-controls,.history-panel,.heading-actions,.download-actions,.modal-overlay,.page-heading,.hint-strip,.toast,.report-review{display:none!important}.shell,.layout{display:block}.main{padding:0}.report-sheet{box-shadow:none;border:0}.report-head{background:#123c43!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.chart-grid{grid-template-columns:1fr 1fr}.chart-card,.report-section,.stat{break-inside:avoid}.report-body{padding:12px}.footnote{font-size:11px}}
+
+/* Inside the existing 보고서 초안 tab: hide the duplicate report app navigation. */
+html.embedded-reports .shell{display:block;min-height:0}
+html.embedded-reports .rail,html.embedded-reports .topbar,html.embedded-reports .page-heading{display:none!important}
+html.embedded-reports .workspace{width:100%;min-width:0}
+html.embedded-reports .main{padding:4px 4px 28px;max-width:none}
+html.embedded-reports .layout{grid-template-columns:245px minmax(0,1fr);gap:12px}
+html.embedded-reports .sidebar-panel{position:static}
+@media(max-width:1080px){html.embedded-reports .layout{grid-template-columns:1fr}}
+@media(max-width:600px){html.embedded-reports .main{padding:2px}html.embedded-reports .report-controls{padding:16px}}
 </style>
+<script>if(new URLSearchParams(location.search).has('embed'))document.documentElement.classList.add('embedded-reports');</script>
 </head>
 <body>
 <div class="shell">
@@ -177,6 +188,15 @@ $('#printReport').onclick=()=>window.print();
 $('#downloadPdf').onclick=exportPdf;
 resetSelectionForType('inspector');
 
+
+/* Keep the embedded reports tab at the full report height. */
+if(document.documentElement.classList.contains('embedded-reports')&&window.parent!==window){
+  const reportHeight=()=>{const height=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight);window.parent.postMessage({kind:'bansuk-report-height',height},location.origin)};
+  window.addEventListener('load',reportHeight);
+  if(typeof ResizeObserver!=='undefined')new ResizeObserver(reportHeight).observe(document.body);
+  new MutationObserver(reportHeight).observe(document.body,{subtree:true,childList:true});
+  reportHeight();
+}
 </script>
 </body>
 </html>
