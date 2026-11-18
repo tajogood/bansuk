@@ -149,3 +149,44 @@ a,button{touch-action:manipulation}
  .data-table{font-size:11pt}
  .data-table th,.data-table td{font-size:10pt}
 }
+
+/* Readability refinement 2: modest additional text enlargement across all demos. */
+body{font-size:17px}
+.page-intro p,.experience-intro p,.data-cover p{font-size:17px}
+.btn,.tab,.experience-tabs .tab,.stage-actions .btn{font-size:16px;min-height:46px}
+.btn-tiny,.linkish{font-size:15px;min-height:40px}
+.select,.input,.textarea,.form-field .input,.form-field .select,.form-field .textarea,
+.work-field input,.work-field select,.work-field textarea,.work-note-entry input{font-size:17px;min-height:48px}
+.work-field>span,.form-field label,.queue-row strong,.case-head p{font-size:16px}
+.demo-note,.panel-sub,.smalltext,.note-box,.work-fineprint,.experience-hint,.work-alert{font-size:15px}
+.side-link,.side-link small,.sidebar-bottom p,.sidebar-bottom a{font-size:16px}
+.side-heading,.brand-text small,.demo-chip,.crumb,.eyebrow,.ui-kicker{font-size:14px}
+.queue-row small,.queue-pill,.count-bubble,.queue-row-top>b,.stage-node small{font-size:14px}
+.card-heading p,.card-heading small,.case-head small,.case-head h3 span{font-size:15px}
+.data-table{font-size:16px}
+.data-table th,.data-table td{font-size:16px;line-height:1.65}
+.data-necessity,.data-dictionary code,.status,.result-pill{font-size:14px}
+.data-table th{font-weight:800}
+.source-group small,.source-group span,.source-group em,.source-step b{font-size:15px}
+.source-group strong{font-size:18px}
+.integration-list b,.integration-list span,.source-bottom ul{font-size:16px}
+.check-row,.task-item,.range-row,.soap-item b,.soap-item p,.kanban-stage b{font-size:16px}
+.quality-card>span,.quality-card small,.work-log-item b,.work-log-item small{font-size:15px}
+.quality-card strong{font-size:21px}
+.kanban-stage small,.kanban-stage span,.data-cover-pills span,.micro-table>div,.micro-table>div:first-child{font-size:15px}
+.report-copy,.analysis-block p,.analysis-block strong,.activity-item,.toast{font-size:16px}
+.table-foot,.detail-item span,.activity-item small,.footer{font-size:14px}
+.panel h2,.card-heading h3,.experience-card h3,.work-note-panel h3{font-size:21px}
+.experience-intro h2,.data-cover h2{font-size:27px}
+.work-field em,.source-group em{line-height:1.5}
+@media(max-width:600px){
+ body{font-size:17px}
+ .page-intro p,.experience-intro p,.data-cover p{font-size:16px}
+ .crumb,.stage-node small{font-size:14px}
+ .data-table th,.data-table td{font-size:15px}
+ .btn,.tab,.experience-tabs .tab{font-size:16px;min-height:46px}
+ .stage-bar{gap:16px 6px}
+ .stage-node{min-width:0}
+ .stage-node small{overflow-wrap:anywhere;line-height:1.45}
+ .range-row{grid-template-columns:108px minmax(0,1fr) 40px}
+}
