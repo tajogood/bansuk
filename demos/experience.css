@@ -8,3 +8,144 @@
 @media(max-width:960px){.work-layout{grid-template-columns:1fr}.work-queue{position:static}.queue-list{display:flex;overflow-x:auto;max-height:none}.queue-row{min-width:190px}.queue-foot{display:flex;justify-content:space-between}.experience-intro,.data-cover{flex-direction:column;align-items:flex-start}.data-cover-actions{justify-content:flex-start}}
 @media(max-width:600px){.experience-intro,.data-cover{padding:20px}.experience-intro h2,.data-cover h2{font-size:20px}.work-main-card,.experience-card,.work-note-panel,.source-process{padding:16px}.source-group-grid,.source-bottom{grid-template-columns:1fr}.source-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.work-input-grid,.work-checklist,.soap-grid{grid-template-columns:1fr}.quality-grid{grid-template-columns:1fr 1fr}.stage-node small{font-size:8px}.stage-node span{width:25px;height:25px}.stage-node::before{top:12px}.stage-actions .spacer-flex{display:none}.kanban-flow{grid-template-columns:repeat(2,minmax(0,1fr))}.case-head{padding:16px}.data-cover-actions .btn{width:100%}.range-row{grid-template-columns:100px minmax(0,1fr) 36px}.source-steps{grid-template-columns:1fr 1fr}}
 @media print{.work-queue,.queue-foot,.stage-actions,.work-note-entry,.experience-intro .btn,.data-cover-actions{display:none!important}.work-layout{display:block}}
+
+
+/* Accessibility/readability pass (2026-11): all six demos share this stylesheet.
+   Keep a comfortable 16px reading base; no essential UI label below 13px. */
+:root{--muted:#526476;--line:#d9e2eb}
+body{font-size:16px;line-height:1.65}
+button,input,select,textarea{font-size:16px}
+a,button{touch-action:manipulation}
+.sidebar{width:275px;min-width:275px}
+.brand-text strong{font-size:20px}
+.brand-text small{font-size:12px;letter-spacing:.08em;color:#b2d0d2}
+.side-heading{font-size:13px;color:#c3d5df;letter-spacing:.08em}
+.side-link{font-size:15px;min-height:49px;line-height:1.4}
+.side-link small{font-size:13px;color:#8ae9cb}
+.sidebar-bottom p{font-size:14px;color:#c6d6df}
+.sidebar-bottom a{font-size:14px}
+.crumb{font-size:14px;color:#506477}
+.demo-chip{font-size:13px}
+.eyebrow,.ui-kicker{font-size:13px;letter-spacing:.08em}
+.page-intro h1{font-size:clamp(29px,3vw,42px)}
+.page-intro p{font-size:16px;color:#53677a;line-height:1.8}
+.btn,.tab,.experience-tabs .tab,.stage-actions .btn{font-size:15px;min-height:44px;line-height:1.4;padding:10px 16px}
+.btn-tiny{font-size:14px;min-height:38px;padding:7px 12px}
+.demo-note{font-size:14px;color:#36546d;line-height:1.75}
+.panel h2{font-size:20px}
+.panel-sub,.smalltext,.upload-help,.note-box{font-size:14px;line-height:1.75;color:#506678}
+.select,.input,.textarea{font-size:16px;min-height:46px}
+.stat-head,.stat small,.stat-label{font-size:14px;color:#52677a}
+.stat b{font-size:30px}
+.analysis-tag,.analysis-block strong,.analysis-block p{font-size:14px}
+.analysis-block p{color:#465e71}
+.step small,.chart-axis,.map-caption{font-size:13px}
+.chart-text{font-size:12px}
+.data-table{font-size:15px;min-width:760px}
+.data-table th{font-size:14px;color:#516476;line-height:1.45;padding:15px 13px;white-space:normal}
+.data-table td{font-size:15px;line-height:1.55;padding:16px 13px;color:#35485a}
+.table-foot,.detail-item span,.activity-item small{font-size:13px;color:#586c7e}
+.detail-item strong,.empty-detail{font-size:15px}
+.status,.result-pill{font-size:13px}
+.form-field label{font-size:15px}
+.form-field .input,.form-field .select,.form-field .textarea{font-size:16px;min-height:46px}
+.report-copy{font-size:15px;line-height:1.85}
+.toast{font-size:14px;max-width:min(420px,calc(100vw - 36px))}
+.footer{font-size:13px;color:#506577}
+.progress-label,.progress-number{font-size:14px}
+.empty{font-size:15px}
+.icon-btn{width:42px;height:42px}
+.experience-intro h2,.data-cover h2{font-size:26px}
+.experience-intro p,.data-cover p{font-size:16px;line-height:1.8;color:#d9f0ea}
+.work-layout{grid-template-columns:295px minmax(0,1fr);gap:20px}
+.queue-top h3{font-size:19px}
+.work-queue>p{font-size:14px;color:#506778;line-height:1.7}
+.count-bubble,.queue-row-top>b{font-size:13px}
+.queue-row{padding:15px 13px;gap:8px}
+.queue-row strong{font-size:15px;line-height:1.45}
+.queue-row small,.queue-pill{font-size:13px;line-height:1.35}
+.linkish{font-size:14px}
+.case-head small,.case-head h3 span{font-size:14px;color:#586b7b}
+.case-head p{font-size:15px;color:#506677}
+.case-head h3{font-size:24px}
+.card-heading h2{font-size:25px}
+.card-heading h3,.experience-card h3,.work-note-panel h3{font-size:20px}
+.card-heading p,.card-heading small{font-size:14px;color:#526879;line-height:1.7}
+.demo-mark{font-size:13px}
+.stage-node span{width:36px;height:36px;font-size:15px}
+.stage-node::before{top:17px}
+.stage-node small{font-size:14px;line-height:1.4;font-weight:700;color:#536b79}
+.work-field>span{font-size:15px;color:#394f60}
+.work-field em{font-size:13px;color:#886343}
+.work-field input,.work-field select,.work-field textarea,.work-note-entry input{font-size:16px;min-height:46px;line-height:1.5;padding:11px 13px}
+.work-field textarea{min-height:100px}
+.work-fineprint,.experience-hint,.work-alert{font-size:14px;color:#516879;line-height:1.8}
+.quality-card>span,.quality-card small{font-size:13px;color:#526c6b}
+.quality-card strong{font-size:20px}
+.micro-table>div,.micro-table>div:first-child{font-size:14px;line-height:1.5}
+.check-row,.task-item,.range-row{font-size:15px;line-height:1.6}
+.check-row input,.task-item input{width:18px;height:18px;flex-shrink:0}
+.observation-bars small{font-size:13px}
+.risk-score small{font-size:14px}
+.soap-item b,.soap-item p{font-size:15px;line-height:1.65}
+.kanban-stage{min-height:120px}
+.kanban-stage small,.kanban-stage span{font-size:13px;color:#566d79}
+.kanban-stage b{font-size:15px;line-height:1.5}
+.work-log-item b,.work-log-item small{font-size:14px;color:#526d7d}
+.data-cover-pills span{font-size:14px}
+.source-step span{width:28px;height:28px;font-size:14px}
+.source-step b{font-size:14px;line-height:1.55}
+.source-group{min-height:158px}
+.source-group small,.source-group span,.source-group em{font-size:14px;line-height:1.5}
+.source-group strong{font-size:17px}
+.data-dictionary code,.data-necessity{font-size:13px}
+.source-bottom h3{font-size:19px}
+.source-bottom ul,.integration-list b,.integration-list span{font-size:15px;color:#4d6677;line-height:1.8}
+.source-group span,.source-bottom ul{overflow-wrap:anywhere}
+.data-dictionary th,.data-dictionary td{white-space:normal;overflow-wrap:anywhere}
+.table-container{-webkit-overflow-scrolling:touch}
+@media(max-width:1240px){
+ .sidebar{width:245px;min-width:245px}
+ .work-layout{grid-template-columns:250px minmax(0,1fr)}
+ .source-steps{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:960px){
+ .work-layout{grid-template-columns:1fr}
+ .work-queue{position:static}
+ .queue-row{min-width:225px}
+}
+@media(max-width:850px){
+ .sidebar{width:275px;min-width:275px;left:-300px}
+ .sidebar.open{left:0}
+}
+@media(max-width:600px){
+ body{font-size:16px}
+ .main{padding:22px 14px}
+ .page-intro p{font-size:16px}
+ .crumb{font-size:13px}
+ .experience-intro h2,.data-cover h2{font-size:23px}
+ .experience-intro p,.data-cover p{font-size:15px}
+ .work-main-card,.experience-card,.work-note-panel,.source-process{padding:18px}
+ .card-heading h2{font-size:23px}
+ .case-head{padding:17px}
+ .queue-row{min-width:220px}
+ .stage-bar{grid-template-columns:repeat(3,minmax(0,1fr));gap:15px 8px}
+ .stage-node::before{display:none}
+ .stage-node span{width:34px;height:34px}
+ .stage-node small{font-size:13px}
+ .quality-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .work-input-grid,.work-checklist,.soap-grid{grid-template-columns:1fr}
+ .range-row{grid-template-columns:105px minmax(0,1fr) 40px}
+ .kanban-flow{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .source-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .source-group-grid,.source-bottom{grid-template-columns:1fr}
+ .btn,.tab{white-space:normal;text-align:center;min-height:44px}
+ .table-container{border-radius:8px}
+ .modal{padding:20px}
+ .footer{padding:20px 14px}
+}
+@media print{
+ body{font-size:12pt}
+ .data-table{font-size:11pt}
+ .data-table th,.data-table td{font-size:10pt}
+}
