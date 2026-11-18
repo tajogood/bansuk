@@ -49,3 +49,23 @@
 | 지자체 스마트 방역 | 업무 접수 → 담당 배정 → 검사·현장 진행 → 검토 → 완료 |
 
 데모 변경사항은 브라우저 localStorage에 저장되며, 실제 AI 추론·검사시스템·알림 전송·법정 신고 기능은 연결되지 않습니다. **모든 농장명과 검사값, 위험 점수, 지역 표시는 가상 데이터**입니다.
+
+## 확장 · 고도화 데모 5종 (2026-11-18 추가)
+
+기존 6개 아이템을 실제 가금 방역 업무 흐름으로 연결하고, 데이터 분석·AI 활용 범위를 넓힌 데모입니다. 제안서 첫 화면의 **01-B / ADVANCED DEMOS** 섹션과 모든 데모의 좌측 메뉴에서 이동할 수 있습니다.
+
+| # | 데모 | URL | 시연 기능 | 구분 |
+|---|---|---|---|---|
+| 07 | 방역 통합 상황실 | [command.html](https://tajogood.github.io/bansuk/demos/command.html) | 가상 실시간 이벤트 스트림, 전국 농장 위험 지도, 시간대별 시료 처리, 시·도별 현황, AI 일일 브리핑 초안 | 신규 |
+| 08 | 확산 시뮬레이터 · 방역대 | [outbreak.html](https://tajogood.github.io/bansuk/demos/outbreak.html) | 의심 농장 지정 → 관리·보호·예찰 지역 농장/사육수 산출, 공간 커널 몬테카를로(A 대응 vs B 미대응 각 200회), 일자별 확산 재생, 대응 체크리스트 | 위험지도 고도화 |
+| 09 | 역학 접촉 추적 | [trace.html](https://tajogood.github.io/bansuk/demos/trace.html) | 21일 차량 방문 이력 역추적, 1·2차 접촉 네트워크/지도, 차량 종류·방문 순서·경과일 기반 우선순위, 차량 타임라인, 역학조사서 초안, 검사 의뢰 대기열 | 신규 |
+| 10 | 시료 수거 경로 최적화 | [route.html](https://tajogood.github.io/bansuk/demos/route.html) | 스윕 클러스터링 + 최근접 + 2-opt 배차, 콜드체인 허용시간·긴급 시료·적재 한도 반영, 접수순 운행 대비 거리·시간·CO₂ 비교, 배차표 CSV | 신규 |
+| 11 | 항체가 분석 · 백신 효과 | [serology.html](https://tajogood.github.io/bansuk/demos/serology.html) | ND/H9 HI·IB ELISA GMT·CV·기준 이상 비율, 백신 기대곡선·비교군 대조, 균일도/저역가/접종 없는 급상승 패턴 표시, 검사값 붙여넣기 분석, 해석 보조 초안 | 검사보고서 고도화 |
+
+**데모 간 연결:** 상황실 이상 신호 → 확산 시뮬레이터(`?farm=` 전달) → 접촉 추적에서 고위험 농장 검사 의뢰 → 수거 경로 최적화에 긴급 건으로 자동 반영 (localStorage 공유).
+
+**기존 데모 보완:** AI 질병 위험지도의 임의 도형을 실제 시·도 경계 지도(통계청 2013 경계 단순화, [southkorea-maps](https://github.com/southkorea/southkorea-maps))로 교체하고, 시·군 대표 좌표에 핀을 표시합니다. 11개 데모 공통 좌측 내비게이션(`demos/nav.js`)을 적용했습니다.
+
+**구성 파일:** `demos/nav.js`(공통 메뉴) · `demos/korea.js`(시·도 경계) · `demos/pro.css`/`pro.js`(확장 데모 공통) · `demos/{command,outbreak,trace,route,serology}.js`
+
+모든 계산은 브라우저 안에서 이루어지며 외부 API를 호출하지 않습니다. 확산 모델·접촉 점수·경로 거리(직선×도로계수)·방어 기준선은 **설명용 단순 모델과 예시값**이며 실제 발생 예측, 법정 조치 기준, 수의학적 판정이 아닙니다.
