@@ -27,6 +27,16 @@ const PRO = (function () {
     }
   });
 
+
+  // 11 veterinarians (fabricated names/roles for the demo)
+  const VETS = [
+    ['V01', '가상 수의사 01', '판독·승인', '분자진단(PCR)'], ['V02', '가상 수의사 02', '판독·승인', '분자진단(PCR)'],
+    ['V03', '가상 수의사 03', '판독·승인', '혈청(HI·ELISA)'], ['V04', '가상 수의사 04', '판독·승인', '혈청(HI·ELISA)'],
+    ['V05', '가상 수의사 05', '병성감정', '부검·병리'], ['V06', '가상 수의사 06', '병성감정', '세균·배양'],
+    ['V07', '가상 수의사 07', '현장 진료', '산란계'], ['V08', '가상 수의사 08', '현장 진료', '육계·종계'],
+    ['V09', '가상 수의사 09', '현장 진료', '오리'], ['V10', '가상 수의사 10', '컨설팅·교육', '차단방역'],
+    ['V11', '가상 수의사 11', '품질책임(QA)', '정도관리·승인']
+  ].map(([id, name, role, spec]) => ({ id, name, role, spec }));
   // Haversine km
   function km(a, b) { const R0 = 6371, t = Math.PI / 180; const dLat = (b.lat - a.lat) * t, dLon = (b.lon - a.lon) * t; const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * t) * Math.cos(b.lat * t) * Math.sin(dLon / 2) ** 2; return 2 * R0 * Math.asin(Math.sqrt(h)); }
 
@@ -53,7 +63,7 @@ const PRO = (function () {
     const step = Math.ceil(n / 12); labels.forEach((l, i) => { if (i % step === 0 || i === n - 1) g += `<text class="c-axis" x="${X(i)}" y="${h - 8}" text-anchor="middle">${esc(l)}</text>`; });
     if (threshold != null) g += `<line x1="${padL}" x2="${w - padR}" y1="${Y(threshold.v)}" y2="${Y(threshold.v)}" stroke="${threshold.color || '#dc6477'}" stroke-dasharray="5 5" stroke-width="1.4"/><text x="${w - padR}" y="${Y(threshold.v) - 5}" text-anchor="end" class="c-axis" style="fill:${threshold.color || '#dc6477'};font-weight:700">${esc(threshold.label)}</text>`;
     if (band) g += `<polygon fill="${band.color}" opacity=".18" points="${band.hi.map((v, i) => X(i) + ',' + Y(v)).join(' ')} ${band.lo.map((v, i) => X(i) + ',' + Y(v)).reverse().join(' ')}"/>`;
-    markers.forEach((m, mi) => { g += `<line x1="${X(m.i)}" x2="${X(m.i)}" y1="${padT}" y2="${padT + ih}" stroke="${m.color || '#7b61d1'}" stroke-dasharray="3 4"/><text x="${X(m.i) + 4}" y="${padT + 10 + mi * 13}" class="c-axis" style="fill:${m.color || '#7b61d1'};font-weight:700">${esc(m.label)}</text>`; });
+    markers.forEach((m, mi) => { g += `<line x1="${X(m.i)}" x2="${X(m.i)}" y1="${padT}" y2="${padT + ih}" stroke="${m.color || '#7b61d1'}" stroke-dasharray="3 4"/><text x="${X(m.i) > w - 70 ? X(m.i) - 4 : X(m.i) + 4}" text-anchor="${X(m.i) > w - 70 ? 'end' : 'start'}" y="${padT + 10 + mi * 13}" class="c-axis" style="fill:${m.color || '#7b61d1'};font-weight:700">${esc(m.label)}</text>`; });
     series.forEach(s => { g += `<polyline class="c-line" stroke="${s.color}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''} points="${s.values.map((v, i) => v == null ? '' : X(i) + ',' + Y(v)).join(' ')}"/>`; if (s.dots) s.values.forEach((v, i) => { if (v != null) g += `<circle cx="${X(i)}" cy="${Y(v)}" r="3.4" fill="#fff" stroke="${s.color}" stroke-width="2"><title>${esc(labels[i])}: ${yFmt(v)}</title></circle>`; }); });
     return `<div class="chart-box"><svg viewBox="0 0 ${w} ${h}" role="img">${g}</svg></div>`;
   }
@@ -81,5 +91,5 @@ const PRO = (function () {
   }
   const fmt = n => Number(n).toLocaleString('ko-KR');
   const typeColor = { 산란계: '#2bb593', 육계: '#f0a63a', 오리: '#4a8de0', 종계: '#9a6fe0' };
-  return { esc, rng, R, pick, gauss, FARMS, CLUSTERS, km, bbox, mapBase, P, svgPoint, unproject, kmToSvg, lineChart, spark, toast, download, csv, store, save, typewrite, shell, fmt, typeColor };
+  return { VETS, esc, rng, R, pick, gauss, FARMS, CLUSTERS, km, bbox, mapBase, P, svgPoint, unproject, kmToSvg, lineChart, spark, toast, download, csv, store, save, typewrite, shell, fmt, typeColor };
 })();

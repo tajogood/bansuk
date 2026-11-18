@@ -9,11 +9,12 @@ window.BANSUK_NAV = {
     ['public', '▦', '지자체 스마트 방역']
   ],
   advanced: [
-    ['command', '◉', '방역 통합 상황실'],
-    ['outbreak', '⊛', '확산 시뮬레이터 · 방역대'],
-    ['trace', '⟁', '역학 접촉 추적'],
+    ['portal', '⊡', '고객 포털 · 의뢰 · 결과'],
     ['route', '⇄', '시료 수거 경로 최적화'],
-    ['serology', '∿', '항체가 분석 · 백신 효과']
+    ['command', '◉', '검사실 운영 관제'],
+    ['pcr', '⌇', 'PCR 판독 · QC 자동화'],
+    ['serology', '∿', '항체가 분석 · 백신 효과'],
+    ['intel', '◫', '진단 데이터 질병 동향']
   ],
   html: function (current) {
     var link = function (item, i, offset) {
@@ -21,7 +22,7 @@ window.BANSUK_NAV = {
     };
     return '<div class="side-heading">6 PRODUCT CONCEPTS</div><nav class="side-links" aria-label="기본 데모 선택">' +
       this.core.map(function (x, i) { return link(x, i, 0); }).join('') +
-      '</nav><div class="side-heading side-heading-new">ADVANCED · 확장 데모 <em>NEW</em></div><nav class="side-links" aria-label="확장 데모 선택">' +
+      '</nav><div class="side-heading side-heading-new">DIAGNOSTIC LAB · 확장 <em>NEW</em></div><nav class="side-links" aria-label="확장 데모 선택">' +
       this.advanced.map(function (x, i) { return link(x, i, 6); }).join('') + '</nav>';
   }
 };

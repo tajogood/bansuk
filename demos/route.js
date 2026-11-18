@@ -6,19 +6,19 @@
   const COLORS = ['#0e806b', '#2c7fd0', '#e08a1e', '#9a4fd6'];
   const ROAD = 1.32, SPEED = 52, SERVICE = 15, START = 8 * 60 + 30;
   function seed() { const r = rng(1010); const pool = AREA.slice().sort(() => r() - .5).slice(0, 16); return pool.map((f, i) => ({ id: f.id, samples: [20, 20, 30, 40, 10, 60][Math.floor(r() * 6)], urgent: r() < .22, order: i })); }
-  const queue = store('trace_queue', []);
+  const queue = store('portal_pickups', []);
   const S = { reqs: store('route_reqs', null) || seed(), vehicles: 3, cap: 180, limit: 240, showBase: false, plan: null };
   // Contacts queued from the tracing demo become urgent pickups
-  let imported = 0; queue.forEach(q => { if (AREA.some(f => f.id === q.id) && !S.reqs.some(x => x.id === q.id)) { S.reqs.push({ id: q.id, samples: 30, urgent: true, order: S.reqs.length, fromTrace: true }); imported++; } });
+  let imported = 0; queue.forEach(q => { if (AREA.some(f => f.id === q.id) && !S.reqs.some(x => x.id === q.id)) { S.reqs.push({ id: q.id, samples: q.samples || 20, urgent: !!q.urgent, order: S.reqs.length, fromPortal: q.req }); imported++; } });
   const F = id => id === 'LAB' ? DEPOT : AREA.find(f => f.id === id);
   const dist = (a, b) => km(F(a), F(b)) * ROAD;
   const persist = () => save('route_reqs', S.reqs);
 
   const body = shell({
     key: 'route', code: 'SAMPLE LOGISTICS', title: '시료 수거 경로 최적화',
-    subtitle: '농장별 수거 요청·시료량·긴급도·<b>콜드체인 허용시간</b>을 반영해 차량별 최적 경로를 계산하고, 접수 순서대로 도는 기존 방식과 거리·시간·탄소배출을 비교합니다.',
+    subtitle: '고객 포털로 들어온 방문 수거 요청의 시료량·긴급도·<b>콜드체인 허용시간</b>을 반영해 차량별 최적 경로를 계산하고, 접수 순서대로 도는 기존 방식과 거리·시간·탄소배출을 비교합니다.',
     toolbar: '<button class="btn" id="rtBase" type="button">◌ 기존 경로 겹쳐보기</button><button class="btn" id="rtCsv" type="button">↓ 배차표 CSV</button><button class="btn btn-primary" id="rtRun" type="button">⇄ 경로 최적화</button>',
-    reset: () => { localStorage.removeItem('bansuk_pro_route_reqs'); S.reqs = seed(); S.plan = null; optimize(); },
+    reset: () => { localStorage.removeItem('bansuk_pro_route_reqs'); localStorage.removeItem('bansuk_pro_portal_pickups'); S.reqs = seed(); S.plan = null; optimize(); },
     note: '농장 위치·수거 요청은 가상이며, 거리는 직선거리×1.32 도로계수로 근사합니다. 실서비스에서는 도로망 API·실시간 교통·차량 냉장 온도 로그를 연동합니다.'
   });
 
@@ -45,7 +45,7 @@
   }
   function render() {
     const p = S.plan; const od = p ? sum(p.opt, 'd') : 0, bd = p ? sum(p.base, 'd') : 0; const ot = p ? Math.max(...p.opt.map(x => x.end)) : 0, bt = p ? Math.max(...p.base.map(x => x.end)) : 0; const ov = p ? sum(p.opt, 'viol') : 0, bv = p ? sum(p.base, 'viol') : 0; const totalS = S.reqs.reduce((s, x) => s + x.samples, 0);
-    body.innerHTML = `${imported ? `<div class="flag blue" style="margin:0 0 16px"><i>↪</i><div><b>역학 접촉 추적에서 ${imported}건 연결됨</b>검사 의뢰 대기열의 접촉 농장을 긴급 수거 요청으로 추가했습니다.</div></div>` : ''}
+    body.innerHTML = `${imported ? `<div class="flag blue" style="margin:0 0 16px"><i>↪</i><div><b>고객 포털에서 ${imported}건 연결됨</b>포털에서 접수된 방문 수거 요청을 노선에 추가했습니다.</div></div>` : ''}
     <div class="pro-kpis"><div class="pro-kpi"><small>수거 요청</small><b>${S.reqs.length}곳</b><em>시료 ${fmt(totalS)}수 · 긴급 ${S.reqs.filter(x => x.urgent).length}</em></div><div class="pro-kpi"><small>총 주행거리</small><b>${Math.round(od)}km</b><em>기존 ${Math.round(bd)}km 대비 −${bd ? Math.round((1 - od / bd) * 100) : 0}%</em></div><div class="pro-kpi"><small>전 차량 복귀</small><b>${p ? tStr(ot) : '—'}</b><em>기존 ${p ? tStr(bt) : '—'}</em></div><div class="pro-kpi ${ov ? 'alert' : ''}"><small>콜드체인 초과 시료</small><b>${ov}곳</b><em class="${bv ? 'down' : ''}">기존 ${bv}곳 · 허용 ${S.limit / 60}h</em></div><div class="pro-kpi"><small>CO₂ 절감</small><b>${Math.round((bd - od) * .26)}kg</b><em>1톤 냉장탑차 0.26kg/km 가정</em></div><div class="pro-kpi"><small>계산 시간</small><b>${p ? p.ms : 0}ms</b><em>스윕+2-opt · 브라우저</em></div></div>
     <div class="pro-grid pro-2"><div class="panel"><div class="panel-head"><div><h2>수거 경로</h2><div class="panel-sub">흰 점 클릭 = 요청 추가 · 번호 점 클릭 = 요청 삭제 · 붉은 테두리 = 긴급</div></div><div class="pro-inline">${p ? p.opt.map((_, i) => `<span class="pro-chip" style="color:${COLORS[i]}">● ${i + 1}호차</span>`).join('') : ''}${S.showBase ? '<span class="pro-chip red">┅ 기존</span>' : ''}</div></div><div class="pro-mapbox" id="rtMap">${mapSvg()}<div class="mapnote">경기·충청 일대 · 출발 08:30 · 정차당 ${SERVICE}분 · 평균 ${SPEED}km/h</div></div></div>
     <div class="panel"><div class="panel-head"><div><h2>배차 조건</h2><div class="panel-sub">값을 바꾸면 즉시 재계산</div></div><span class="pro-badge-ai">VRP SOLVER</span></div><div class="pro-controls"><label class="pro-field">운행 차량<span class="val">${S.vehicles}대</span><input type="range" id="rtVeh" min="1" max="4" value="${S.vehicles}"></label><label class="pro-field">차량당 적재 한도<span class="val">${S.cap}수</span><input type="range" id="rtCap" min="80" max="300" step="20" value="${S.cap}"></label><label class="pro-field">콜드체인 허용시간 (수거→입고)<span class="val">${S.limit / 60}h</span><input type="range" id="rtLim" min="120" max="360" step="30" value="${S.limit}"></label></div>

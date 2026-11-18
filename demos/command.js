@@ -1,131 +1,115 @@
-/* 07 방역 통합 상황실 — fabricated live-feed simulation. */
+/* 07 검사실 운영 관제 — fabricated sample queue, equipment and 11-vet workload simulation. */
 (function () {
-  const { esc, rng, FARMS, mapBase, P, bbox, spark, toast, download, csv, shell, fmt, typewrite } = PRO;
-  const r = rng(77);
-  const S = { playing: true, prov: '전체', clock: 13 * 60 + 38, received: 612, done: 497, flags: 6, feed: [], selected: null, hourly: [], brief: '' };
-  const HOURS = ['08', '09', '10', '11', '12', '13', '14', '15', '16', '17'];
-  S.hourly = HOURS.map((h, i) => ({ h, rec: i < 6 ? Math.round(55 + r() * 45) : 0, done: i < 6 ? Math.round(40 + r() * 45) : 0 }));
-  const TESTS = [['AI 항원 PCR', 32], ['ND HI 항체', 26], ['IB ELISA', 18], ['살모넬라 배양', 14], ['MG/MS 항체', 10]];
-  const PROVS = ['전체', '경기', '충북', '충남', '전북', '전남', '경북', '경남'];
-  const tier = f => f.risk >= 75 ? 'high' : f.risk >= 50 ? 'mid' : 'low';
-  const TC = { high: '#ff6b81', mid: '#f7b955', low: '#3fd3a6' };
-  const EV = [
-    ['rec', 38, 'green', f => [`시료 접수 · ${f.name}`, `${['ND HI', 'AI 항원 PCR', 'IB ELISA', '살모넬라'][Math.floor(r() * 4)]} ${10 + Math.floor(r() * 4) * 5}수 · 바코드 자동 매칭`]],
-    ['done', 30, 'blue', f => [`검사 완료 · ${f.name}`, `결과 자동 집계 → 보고서 초안 생성 대기`]],
-    ['cv', 10, 'amber', f => [`검토 필요 · ${f.name}`, `항체가 CV ${38 + Math.floor(r() * 15)}% — 접종 균일도 검토 권고(규칙 기반)`]],
-    ['dis', 8, 'amber', f => [`소독 기록 미입력 · ${f.name}`, `최근 48시간 출입 소독 기록 없음 — 농장 담당자 알림(시연)`]],
-    ['car', 9, '', f => [`수거 차량 도착 · ${f.region}`, `냉장 시료 ${8 + Math.floor(r() * 20)}건 인수 · 온도 ${(2 + r() * 4).toFixed(1)}°C`]],
-    ['alert', 5, 'red', f => [`이상 신호 · ${f.name}`, `폐사·산란 급변 신고(가상) — 정밀검사 의뢰 및 역학 확인 권고`]]
-  ];
-  const tStr = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
-  function pickEvent() { const tot = EV.reduce((s, e) => s + e[1], 0); let x = r() * tot; for (const e of EV) { x -= e[1]; if (x <= 0) return e; } return EV[0]; }
-  function pushEvent(silent, forced) {
-    const f = forced ? FARMS.slice().sort((a, b) => b.risk - a.risk)[2] : FARMS[Math.floor(r() * FARMS.length)]; const e = forced || pickEvent(); const [title, sub] = e[3](f);
-    S.feed.unshift({ t: tStr(S.clock), kind: e[0], tone: e[2], title, sub, farm: f.id }); S.feed = S.feed.slice(0, 40);
-    const hi = Math.min(HOURS.length - 1, Math.max(0, Math.floor(S.clock / 60) - 8));
-    if (e[0] === 'rec') { const n = 10 + Math.floor(r() * 20); S.received += n; S.hourly[hi].rec += n; }
-    if (e[0] === 'done') { const n = 8 + Math.floor(r() * 18); S.done += n; S.hourly[hi].done += n; }
-    if (e[0] === 'cv' || e[0] === 'alert') S.flags++;
-    if (e[0] === 'alert') { f.risk = Math.min(98, f.risk + 18); }
-    if (!silent) S.lastPing = f.id;
-    S.clock += 2 + Math.floor(r() * 4);
+  const { VETS, esc, rng, FARMS, toast, download, csv, shell, fmt, typewrite, spark } = PRO;
+  const r = rng(707);
+  const STAGES = ['접수·바코드', '전처리·추출', '검사 진행', '판독·QC', '수의사 승인', '결과 발송'];
+  const GROUPS = {
+    PCR: { items: ['AI M유전자 PCR', 'H5/H7 감별 PCR', 'H9 PCR', 'ND PCR', 'IB PCR', 'MG/MS PCR'], sla: 24, urgentSla: 6, spec: '분자진단(PCR)', color: '#2c7fd0' },
+    혈청: { items: ['ND HI', 'H9 HI', 'IB ELISA', 'MG ELISA', 'EDS HI'], sla: 48, spec: '혈청(HI·ELISA)', color: '#0e806b' },
+    세균: { items: ['살모넬라 배양', '대장균 동정·감수성', '마이코플라즈마 배양'], sla: 72, spec: '세균·배양', color: '#e08a1e' },
+    병성감정: { items: ['부검·병성감정', '조직병리'], sla: 72, spec: '부검·병리', color: '#9a4fd6' }
+  };
+  const CLIENTS = [...FARMS.slice(0, 40).map(f => f.name), '가상 동물병원 A', '가상 동물병원 B', '가상 계열사 C (육계)', '가상 계열사 D (산란계)', '가상 종계장 E'];
+  const S = { playing: true, clock: 13 * 60 + 20, group: '전체', samples: [], feed: [], seq: 1, sent: 128, received: 0, reruns: 4 };
+  const pickGroup = () => { const x = r(); return x < .42 ? 'PCR' : x < .78 ? '혈청' : x < .92 ? '세균' : '병성감정'; };
+  function newSample(age) {
+    const g = pickGroup(); const G = GROUPS[g]; const urgent = g === 'PCR' && r() < .18; if (urgent) age = Math.min(age, Math.floor(200 + r() * 160));
+    const vetPool = VETS.filter(v => v.spec === G.spec);
+    const s = { id: 'BS-1118-' + String(S.seq++).padStart(3, '0'), client: CLIENTS[Math.floor(r() * CLIENTS.length)], group: g, item: G.items[Math.floor(r() * G.items.length)], n: [10, 15, 20, 30][Math.floor(r() * 4)], recv: S.clock - age, stage: 0, urgent, sla: (urgent ? G.urgentSla : G.sla) * 60, vet: vetPool[Math.floor(r() * vetPool.length)].id };
+    const frac = age / s.sla; s.stage = Math.min(4, Math.floor(frac * 6 + r() * 1.2)); S.received++; return s;
   }
-  for (let i = 0; i < 9; i++) pushEvent(true, i === 6 ? EV[5] : null);
+  for (let i = 0; i < 64; i++) S.samples.push(newSample(Math.floor(r() * 1800)));
+  // pile up approvals on one vet so the balancing demo has something to do
+  S.samples.filter(s => s.group === 'PCR').slice(0, 9).forEach(s => { s.stage = 4; s.vet = 'V01'; });
+  const EQUIP = [['PCR #1', 'PCR', [[8.5, 10.2, 'Run 41 · AI M'], [10.5, 12.3, 'Run 42 · H9'], [13, 14.8, 'Run 43 · ND/IB'], [15.2, 17, 'Run 44 · 긴급 AI']]], ['PCR #2', 'PCR', [[9, 10.8, 'Run 18 · MG/MS'], [11.2, 13, 'Run 19 · AI M'], [15.6, 17.4, 'Run 20 · H5/H7']]], ['자동 핵산추출기', 'PCR', [[8.2, 9.8, '96검체'], [10, 11.5, '96검체'], [12.5, 14, '72검체'], [14.5, 16, '96검체']]], ['ELISA 리더', '혈청', [[9.5, 11, 'IB 6플레이트'], [13.5, 15.5, 'MG 4플레이트']]], ['HI 판독대', '혈청', [[8.5, 12, 'ND/H9 HI 420검체'], [13, 17, 'ND/H9 HI 380검체']]], ['배양기·동정기', '세균', [[8, 18, '살모넬라 진행 36건']]]];
+  const tStr = m => { m = ((m % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(Math.round(m % 60)).padStart(2, '0'); };
+  const left = s => s.sla - (S.clock - s.recv);
+  const vname = id => VETS.find(v => v.id === id).name;
+  function event(tone, title, sub) { S.feed.unshift({ t: tStr(S.clock), tone, title, sub }); S.feed = S.feed.slice(0, 40); }
+  function step(silent) {
+    S.clock += 4;
+    if (r() < .55) { const s = newSample(0); S.samples.push(s); if (!silent) event(s.urgent ? 'red' : 'green', `${s.urgent ? '긴급 ' : ''}검체 접수 · ${s.id}`, `${s.client} · ${s.item} ${s.n}수 · 담당 ${vname(s.vet)}`); }
+    for (let k = 0; k < 3; k++) {
+      const pool = S.samples.filter(s => s.stage < 5); const s = pool[Math.floor(r() * pool.length)]; if (!s) break;
+      if (s.stage === 3 && r() < .08) { S.reruns++; s.stage = 1; if (!silent) event('amber', `QC 재검 · ${s.id}`, `${s.item} 내부대조(IC) 미증폭 → 재추출 지시 (규칙 기반)`); continue; }
+      s.stage++;
+      if (s.stage === 5) { S.sent++; if (!silent) event('blue', `결과 발송 · ${s.id}`, `${s.client} · 포털 알림·PDF 결과지 (시연)`); S.samples = S.samples.filter(x => x !== s); }
+      else if (!silent && s.stage === 4) event('', `승인 대기 · ${s.id}`, `${s.item} 판독 완료 → ${vname(s.vet)} 검토 요청`);
+    }
+    S.samples.filter(s => left(s) < 0 && !s.late).forEach(s => { s.late = true; if (!silent) event('red', `SLA 초과 · ${s.id}`, `${s.item} 목표 ${s.sla / 60}h 초과 — 우선 처리 권고`); });
+  }
+  for (let i = 0; i < 10; i++) step(false);
 
   const body = shell({
-    key: 'command', code: 'SITUATION ROOM', title: '방역 통합 상황실',
-    subtitle: '검사·방역·수거·위험 신호를 한 화면에서 보는 운영 콘솔. 이벤트를 <b>가상 실시간</b>으로 흘려보내며, 클릭 한 번으로 지도·확산 시뮬레이터·접촉 추적으로 이어집니다.',
-    toolbar: '<button class="btn" id="cmdPlay" type="button">❚❚ 일시정지</button><button class="btn" id="cmdCsv" type="button">↓ 현황 CSV</button><button class="btn btn-primary" id="cmdBrief" type="button">✳ AI 일일 브리핑</button>'
+    key: 'command', code: 'LAB OPERATIONS', title: '검사실 운영 관제',
+    subtitle: '검체 접수부터 결과 발송까지 <b>단계별 흐름·TAT·SLA</b>, 장비 가동, <b>수의사 11명</b>의 판독·승인·현장 업무량을 한 화면에서 보고 병목을 바로 조정합니다.',
+    toolbar: '<button class="btn" id="cmdPlay" type="button">❚❚ 일시정지</button><button class="btn" id="cmdCsv" type="button">↓ 대기열 CSV</button><button class="btn btn-primary" id="cmdBrief" type="button">✳ 운영 브리핑</button>',
+    note: '검체·의뢰처·장비 일정·수의사 이름과 역할 배분은 모두 가상입니다. 실서비스는 LIMS·장비 출력 파일과 연동하며, 결과 승인은 반드시 담당 수의사가 수행합니다.'
   });
 
-  const visibleFarms = () => FARMS.filter(f => S.prov === '전체' || f.prov.startsWith(S.prov));
+  const active = () => S.samples.filter(s => S.group === '전체' || s.group === S.group);
+  function vetLoad(v) { const mine = S.samples.filter(s => s.vet === v.id); return { approvals: mine.filter(s => s.stage === 4).length, inprog: mine.filter(s => s.stage >= 2 && s.stage <= 3).length }; }
+  const FIELD = { V07: '현장 진료 · 음성', V08: '현장 진료 · 천안', V09: '현장 진료 · 나주', V10: '농장 교육 · 진천' };
   function kpis() {
-    const tat = (4.6 + Math.sin(S.clock / 37) * .4).toFixed(1); const insp = Math.round(FARMS.reduce((s, f) => s + f.insp, 0) / FARMS.length);
-    const hi = FARMS.filter(f => tier(f) === 'high').length;
-    return `<div class="pro-kpis">
-      <div class="pro-kpi"><small>관리 농장</small><b>${FARMS.length}</b><em>${new Set(FARMS.map(f => f.region)).size}개 시·군</em></div>
-      <div class="pro-kpi"><small>오늘 접수 시료</small><b>${fmt(S.received)}</b><em>▲ 전주 동시간 대비 +8%</em>${spark([12, 18, 15, 22, 19, 26, 24, 30])}</div>
-      <div class="pro-kpi"><small>검사 완료</small><b>${fmt(S.done)}</b><em>처리율 ${Math.round(S.done / S.received * 100)}%</em></div>
-      <div class="pro-kpi"><small>평균 검사 TAT</small><b>${tat}h</b><em>목표 6h 이내</em>${spark([6.1, 5.8, 5.2, 5.4, 4.9, 4.7, 4.8, +tat], '#4a8de0')}</div>
-      <div class="pro-kpi ${S.flags > 8 ? 'alert' : ''}"><small>검토 필요 신호</small><b>${S.flags}</b><em class="down">고위험 농장 ${hi}곳</em></div>
-      <div class="pro-kpi"><small>방역 점검 이행률</small><b>${insp}%</b><em>미흡 ${FARMS.filter(f => f.insp < 75).length}곳 후속조치</em></div></div>`;
+    const all = S.samples; const late = all.filter(s => left(s) < 0).length; const risk = all.filter(s => left(s) >= 0 && left(s) < 120).length;
+    const tat = (all.reduce((x, s) => x + (S.clock - s.recv), 0) / all.length / 60).toFixed(1);
+    return `<div class="pro-kpis"><div class="pro-kpi"><small>오늘 접수 의뢰</small><b>${fmt(S.received + 151)}</b><em>${fmt(all.reduce((x, s) => x + s.n, 0))}수 처리 중</em>${spark([18, 22, 19, 25, 28, 24, 31, 29])}</div><div class="pro-kpi"><small>진행 중</small><b>${all.length}</b><em>긴급 ${all.filter(s => s.urgent).length}건</em></div><div class="pro-kpi"><small>결과 발송</small><b>${S.sent}</b><em>포털·PDF 자동 발송</em></div><div class="pro-kpi"><small>평균 경과시간</small><b>${tat}h</b><em>PCR 목표 24h · 긴급 6h</em></div><div class="pro-kpi ${late ? 'alert' : ''}"><small>SLA 초과 / 위험</small><b>${late} / ${risk}</b><em class="down">2시간 내 초과 예상 ${risk}건</em></div><div class="pro-kpi"><small>재검률</small><b>${(S.reruns / (S.sent + all.length) * 100).toFixed(1)}%</b><em>QC 재검 ${S.reruns}건</em></div></div>`;
   }
-  function map() {
-    const vb = bbox(126.05, 34.55, 129.6, 38.2); const k = vb[2] / 560;
-    const farms = visibleFarms();
-    return `<div class="pro-mapbox dark" id="cmdMap"><svg viewBox="${vb.join(' ')}" role="img" aria-label="관리 농장 위험 등급 지도">${mapBase(vb)}
-      ${farms.map(f => { const [x, y] = P(f.lon, f.lat); const t = tier(f); const sel = S.selected === f.id; return `<g class="farm-dot" data-farm="${f.id}">${S.lastPing === f.id ? `<circle class="ping" cx="${x}" cy="${y}" r="${9 * k}" fill="none" stroke="${TC[t]}" stroke-width="${2 * k}"/>` : ''}<circle cx="${x}" cy="${y}" r="${(sel ? 7 : t === 'high' ? 5.2 : 4) * k}" fill="${TC[t]}" stroke="${sel ? '#fff' : '#0b2233'}" stroke-width="${(sel ? 2 : 1) * k}"><title>${esc(f.name)} · ${f.type} ${fmt(f.heads)}수 · 위험 ${f.risk}</title></circle></g>`; }).join('')}
-      </svg><div class="maplegend"><span><i style="background:${TC.high}"></i>고위험 (75+)</span><span><i style="background:${TC.mid}"></i>주의 (50–74)</span><span><i style="background:${TC.low}"></i>안정</span></div><div class="mapnote">점: 가상 농장 ${farms.length}곳 · 위험 점수는 임의 생성값</div></div>`;
+  function pipeline() {
+    const counts = STAGES.map((_, i) => S.samples.filter(s => s.stage === i).length); counts[5] = S.sent; const max = Math.max(...counts.slice(0, 5)); const bott = counts.slice(0, 5).indexOf(max);
+    return `<div class="panel" style="margin-bottom:18px"><div class="panel-head"><div><h2>검체 처리 파이프라인</h2><div class="panel-sub">단계별 대기 건수 · 가장 많이 쌓인 단계를 병목으로 표시</div></div><span class="pro-badge-ai">LIVE SIM</span></div><div class="pro-pipe">${STAGES.map((st, i) => `<div class="${i === bott ? 'bott' : ''}"><small>0${i + 1}</small><b>${st}</b><span style="font-size:24px;font-weight:850;letter-spacing:-.04em;color:${i === bott ? '#c2394f' : '#10283b'}">${counts[i]}<small style="font-size:11px;color:#7a8b9b"> 건${i === 5 ? ' 누적' : ''}</small></span>${i === bott ? '<span class="pro-chip red" style="align-self:flex-start">병목</span>' : ''}</div>`).join('')}</div>${bott === 4 ? `<div class="flag amber"><i>△</i><div><b>수의사 승인 단계 적체</b>판독 담당 수의사 간 승인 대기 편차가 큽니다. 아래 [승인 대기 자동 배분]으로 업무량을 맞출 수 있습니다.</div></div>` : ''}</div>`;
   }
-  function feed() {
-    return `<div class="panel"><div class="panel-head"><div><h2><span class="live-dot ${S.playing ? '' : 'paused'}"></span>실시간 이벤트</h2><div class="panel-sub">가상 시각 <b id="cmdClock">${tStr(S.clock)}</b> · 클릭하면 지도에서 농장을 강조합니다</div></div><span class="pro-badge-ai">STREAM SIM</span></div><div class="pro-feed" id="cmdFeed">${S.feed.map(feedItem).join('')}</div></div>`;
+  function queue() {
+    const list = active().slice().sort((a, b) => (b.urgent - a.urgent) || (left(a) - left(b))).slice(0, 14);
+    return `<div class="panel"><div class="panel-head"><div><h2>검체 대기열 <span class="result-pill">${active().length}건</span></h2><div class="panel-sub">긴급 → SLA 남은 시간 순 자동 정렬</div></div><div class="pro-inline">${['전체', ...Object.keys(GROUPS)].map(g => `<button class="pro-tab ${S.group === g ? 'active' : ''}" data-group="${g}">${g}</button>`).join('')}</div></div><div class="pro-table-wrap" style="max-height:470px"><table class="pro-table"><thead><tr><th>접수번호</th><th>의뢰처 · 검사</th><th>단계</th><th>SLA</th><th>담당</th></tr></thead><tbody>${list.map(s => { const l = left(s); const p = Math.max(0, Math.min(100, (S.clock - s.recv) / s.sla * 100)); return `<tr><td style="white-space:nowrap"><b>${s.id}</b>${s.urgent ? ' <span class="pro-chip red">긴급</span>' : ''}</td><td><b>${esc(s.item)}</b> · ${s.n}수<br><small style="color:#7a8b9b">${esc(s.client)}</small></td><td><span class="pro-chip" style="color:${GROUPS[s.group].color}">${STAGES[s.stage]}</span></td><td style="white-space:nowrap"><div class="pro-bar" style="width:70px"><span style="width:${p}%;background:${l < 0 ? '#c2394f' : l < 120 ? '#e08a1e' : '#2bb593'}"></span></div><small style="color:${l < 0 ? '#c2394f' : '#6c7f8f'}">${l < 0 ? Math.round(-l / 6) / 10 + 'h 초과' : Math.round(l / 6) / 10 + 'h 남음'}</small></td><td style="white-space:nowrap"><small>${esc(vname(s.vet).replace('가상 ', ''))}</small></td></tr>`; }).join('')}</tbody></table></div></div>`;
   }
-  function feedItem(e) { return `<button type="button" class="feed-item ${e.tone}" data-farm="${e.farm}"><time>${e.t}</time><div><b>${esc(e.title)}</b><small>${esc(e.sub)}</small>${e.kind === 'alert' ? `<small style="margin-top:6px"><a class="linkish" href="./outbreak.html?farm=${e.farm}">확산 시뮬레이션 ↗</a> · <a class="linkish" href="./trace.html?farm=${e.farm}">접촉 추적 ↗</a></small>` : ''}</div></button>`; }
-  function throughput() {
-    const max = Math.max(60, ...S.hourly.map(h => Math.max(h.rec, h.done))); const w = 360, h = 170, bw = w / HOURS.length;
-    return `<div class="panel"><div class="panel-head"><div><h2>시간대별 시료 처리</h2><div class="panel-sub">접수 vs 완료 (건)</div></div></div><div class="chart-box"><svg viewBox="0 0 ${w} ${h + 22}">${S.hourly.map((d, i) => { const x = i * bw + 6; const h1 = d.rec / max * h, h2 = d.done / max * h; return `<rect x="${x}" y="${h - h1}" width="${bw / 2 - 5}" height="${h1}" rx="3" fill="#9fd9c7"><title>${d.h}시 접수 ${d.rec}</title></rect><rect x="${x + bw / 2 - 4}" y="${h - h2}" width="${bw / 2 - 5}" height="${h2}" rx="3" fill="#2c7f6c"><title>${d.h}시 완료 ${d.done}</title></rect><text x="${x + bw / 2 - 5}" y="${h + 15}" class="c-axis" text-anchor="middle">${d.h}시</text>`; }).join('')}</svg></div><div class="sim-legend"><span><i style="background:#9fd9c7"></i>접수</span><span><i style="background:#2c7f6c"></i>완료</span></div></div>`;
+  function feed() { return `<div class="panel"><div class="panel-head"><div><h2><span class="live-dot ${S.playing ? '' : 'paused'}"></span>실시간 이벤트</h2><div class="panel-sub">가상 시각 <b>${tStr(S.clock)}</b></div></div><span class="pro-badge-ai">STREAM SIM</span></div><div class="pro-feed">${S.feed.map(e => `<div class="feed-item ${e.tone}"><time>${e.t}</time><div><b>${esc(e.title)}</b><small>${esc(e.sub)}</small></div></div>`).join('')}</div></div>`; }
+  function vets() {
+    const loads = VETS.map(v => ({ v, ...vetLoad(v) })); const maxA = Math.max(1, ...loads.map(x => x.approvals + x.inprog));
+    return `<div class="panel pro-row"><div class="panel-head"><div><h2>수의사 11명 업무 현황</h2><div class="panel-sub">판독·승인 4 · 병성감정 2 · 현장 진료 3 · 컨설팅 1 · 품질책임 1 (역할 배분은 시연용 가정)</div></div><button class="btn btn-tiny" id="vetBalance">⚖ 승인 대기 자동 배분</button></div><div class="pro-grid" style="grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:10px">${loads.map(({ v, approvals, inprog }) => { const field = FIELD[v.id]; const qa = v.role === '품질책임(QA)'; return `<div class="pro-item" style="display:block;cursor:default"><div class="pro-inline" style="justify-content:space-between"><b>${esc(v.name)}</b><span class="pro-chip ${field ? 'blue' : qa ? 'purple' : approvals >= 5 ? 'red' : 'green'}">${field ? '현장' : qa ? 'QA' : approvals >= 5 ? '적체' : '근무'}</span></div><small>${esc(v.role)} · ${esc(v.spec)}</small>${field ? `<small style="margin-top:8px;color:#2c62b4">📍 ${field} · 복귀 예정 ${tStr(15 * 60 + (v.id.charCodeAt(2) % 4) * 40)}</small>` : qa ? `<small style="margin-top:8px">오늘 런 QC 검토 ${3 + S.reruns}건 · 재검 승인 ${S.reruns}건</small>` : `<div class="pro-inline" style="margin-top:8px"><div class="pro-bar" style="flex:1"><span style="width:${(approvals + inprog) / maxA * 100}%;background:${approvals >= 5 ? '#c2394f' : '#2bb593'}"></span></div><small style="margin:0">승인 ${approvals} · 판독 ${inprog}</small></div>`}</div>`; }).join('')}</div><p class="pro-hint">실서비스에서는 수의사별 전문분야·근무표·현장 일정을 반영해 판독·승인 업무를 자동 배정하고, 승인 이력은 전자서명으로 남깁니다.</p></div>`;
   }
-  function mix() { return `<div class="panel"><div class="panel-head"><div><h2>검사 항목 구성</h2><div class="panel-sub">오늘 접수 기준 비율</div></div></div>${TESTS.map(([n, p]) => `<div class="progress-row"><span class="progress-label" style="width:110px">${n}</span><div class="progress-track"><span style="width:${p * 2.6}%"></span></div><span class="progress-number">${p}%</span></div>`).join('')}<p class="pro-hint">LIMS 연동 시 항목별 대기열·장비 가동률·재검률까지 확장할 수 있습니다.</p></div>`; }
-  function topRisk() {
-    const list = visibleFarms().slice().sort((a, b) => b.risk - a.risk).slice(0, 7);
-    return `<div class="panel"><div class="panel-head"><div><h2>위험 상위 농장</h2><div class="panel-sub">검사·점검·밀집도 합성 점수(가상)</div></div></div><div class="pro-list" style="max-height:300px">${list.map(f => `<button type="button" class="pro-item ${S.selected === f.id ? 'active' : ''}" data-farm="${f.id}"><span class="dot" style="background:${TC[tier(f)]}"></span><span class="grow"><b>${esc(f.name)}</b><small>${f.type} ${fmt(f.heads)}수 · 점검 ${f.insp}%</small></span><span class="score-pill" style="background:${TC[tier(f)]}22;color:${tier(f) === 'high' ? '#c2394f' : tier(f) === 'mid' ? '#a76a0c' : '#127b62'}">${f.risk}</span></button>`).join('')}</div></div>`;
+  function equip() {
+    const nowH = S.clock / 60; const X = h => Math.max(0, Math.min(100, (h - 8) / 10 * 100));
+    return `<div class="panel"><div class="panel-head"><div><h2>장비 가동 일정 (오늘)</h2><div class="panel-sub">08–18시 · 붉은 선 = 현재 가상 시각</div></div></div><div class="gantt" style="gap:8px">${EQUIP.map(([n, g, runs]) => `<div class="gantt-row"><span>${n}</span><div class="gantt-track" style="background:#f3f6f9;height:22px">${runs.map(([a, b, l]) => `<i title="${l}" style="left:${X(a)}%;width:${X(b) - X(a)}%;transform:none;height:16px;background:${b < nowH ? '#b9c7d1' : a <= nowH ? GROUPS[g].color : GROUPS[g].color + '66'}"></i>`).join('')}<i style="left:${X(nowH)}%;width:2px;height:22px;top:0;background:#c2394f;transform:none"></i></div></div>`).join('')}<div class="gantt-row"><span></span><div class="pro-inline" style="justify-content:space-between;font-size:10px;color:#8395a5"><span>08시</span><span>13시</span><span>18시</span></div></div></div><p class="pro-hint">가동률: PCR #1 ${Math.round(EQUIP[0][2].reduce((s, x) => s + x[1] - x[0], 0) * 10)}% · PCR #2 ${Math.round(EQUIP[1][2].reduce((s, x) => s + x[1] - x[0], 0) * 10)}% — 긴급 PCR 접수 시 PCR #2의 13–15시 빈 시간 우선 배정 권고.</p></div>`;
   }
-  function provTable() {
-    const by = {}; FARMS.forEach(f => { const p = f.prov; by[p] = by[p] || { n: 0, heads: 0, hi: 0, insp: 0 }; by[p].n++; by[p].heads += f.heads; by[p].hi += tier(f) === 'high' ? 1 : 0; by[p].insp += f.insp; });
-    return `<div class="panel"><div class="panel-head"><div><h2>시·도별 현황</h2><div class="panel-sub">행을 누르면 지도를 해당 지역으로 필터링</div></div></div><div class="pro-table-wrap"><table class="pro-table"><thead><tr><th>시·도</th><th>농장</th><th>사육 규모</th><th>고위험</th><th>점검 이행</th></tr></thead><tbody>${Object.entries(by).sort((a, b) => b[1].n - a[1].n).map(([p, d]) => { const ins = Math.round(d.insp / d.n); return `<tr class="${S.prov === p ? 'hl' : ''}" data-prov="${p}" style="cursor:pointer"><td><b>${p}</b></td><td>${d.n}</td><td>${fmt(Math.round(d.heads / 10000))}만 수</td><td>${d.hi ? `<span class="pro-chip red">${d.hi}</span>` : '<span class="pro-chip green">0</span>'}</td><td><div class="pro-inline"><div class="pro-bar" style="width:70px"><span style="width:${ins}%;background:${ins < 75 ? '#f0a63a' : '#2bb593'}"></span></div>${ins}%</div></td></tr>`; }).join('')}</tbody></table></div></div>`;
-  }
-  function briefPanel() { return `<div class="panel"><div class="panel-head"><div><h2>AI 일일 브리핑</h2><div class="panel-sub">현재 상황판 데이터를 요약한 <b>규칙 기반 초안</b> — 실서비스에서는 LLM + 검증 규칙</div></div><div class="pro-inline"><button class="btn btn-tiny" id="cmdBriefCopy">복사</button><button class="btn btn-primary btn-tiny" id="cmdBrief2">✳ 생성</button></div></div><div class="brief" id="cmdBriefBox">${esc(S.brief || '오른쪽 위 [AI 일일 브리핑] 또는 [생성]을 누르면 현재 상황판 기준 요약이 작성됩니다.')}</div></div>`; }
+  function briefPanel() { return `<div class="panel"><div class="panel-head"><div><h2>운영 브리핑</h2><div class="panel-sub">현재 관제 데이터를 요약한 <b>규칙 기반 초안</b></div></div><div class="pro-inline"><button class="btn btn-tiny" id="cmdBriefCopy">복사</button><button class="btn btn-primary btn-tiny" id="cmdBrief2">✳ 생성</button></div></div><div class="brief" id="cmdBriefBox">${esc(S.brief || '[운영 브리핑]을 누르면 SLA 위험·병목·인력 배분 제안이 작성됩니다.')}</div></div>`; }
   function briefing() {
-    const hi = FARMS.filter(f => tier(f) === 'high').sort((a, b) => b.risk - a.risk); const alerts = S.feed.filter(e => e.kind === 'alert'); const cv = S.feed.filter(e => e.kind === 'cv'); const dis = S.feed.filter(e => e.kind === 'dis');
-    const lowInsp = FARMS.filter(f => f.insp < 75);
-    return `[BANSUK 방역 상황 브리핑 · 2026-11-18 ${tStr(S.clock)} 기준 / 가상 데이터]
+    const all = S.samples; const late = all.filter(s => left(s) < 0); const risk = all.filter(s => left(s) >= 0 && left(s) < 120); const counts = STAGES.map((_, i) => all.filter(s => s.stage === i).length); const bott = counts.slice(0, 5).indexOf(Math.max(...counts.slice(0, 5)));
+    const loads = VETS.filter(v => v.role === '판독·승인').map(v => ({ v, a: vetLoad(v).approvals })).sort((a, b) => b.a - a.a);
+    return `[검사실 운영 브리핑 · ${tStr(S.clock)} 기준 / 가상 데이터]
 
-1. 총괄
- · 관리 농장 ${FARMS.length}곳, 오늘 시료 ${fmt(S.received)}건 접수 / ${fmt(S.done)}건 완료 (처리율 ${Math.round(S.done / S.received * 100)}%).
- · 검토 필요 신호 ${S.flags}건, 고위험 등급 농장 ${hi.length}곳.
+1. 처리 현황
+ · 진행 중 ${all.length}건 (긴급 ${all.filter(s => s.urgent).length}), 결과 발송 ${S.sent}건, QC 재검 ${S.reruns}건
+ · 병목 단계: ${STAGES[bott]} (${counts[bott]}건 대기)
 
-2. 우선 확인 대상
-${hi.slice(0, 4).map((f, i) => ` ${i + 1}) ${f.name} (${f.region}, ${f.type} ${fmt(f.heads)}수) — 합성 점수 ${f.risk}`).join('\n')}
-${alerts.length ? `\n3. 이상 신호 (${alerts.length}건)\n${alerts.slice(0, 3).map(e => ` · ${e.t} ${e.title.replace('이상 신호 · ', '')} — 정밀검사 의뢰 여부 담당 수의사 확인`).join('\n')}` : '\n3. 이상 신호\n · 금일 신규 이상 신호 없음'}
+2. SLA
+ · 초과 ${late.length}건${late.length ? ': ' + late.slice(0, 3).map(s => s.id + ' ' + s.item).join(', ') : ''}
+ · 2시간 내 초과 예상 ${risk.length}건 → 우선 처리 대상
 
-4. 검사·방역 운영
- · 항체가 균일도 검토 ${cv.length}건 → 접종 기록·시료 수 재확인 권고
- · 소독 기록 미입력 ${dis.length}건, 점검 이행률 75% 미만 농장 ${lowInsp.length}곳 → 농장 담당자 알림 및 재점검 일정 편성
+3. 인력·장비 제안 (초안)
+ · 승인 대기 최다: ${loads[0].v.name} ${loads[0].a}건 / 최소: ${loads[loads.length - 1].v.name} ${loads[loads.length - 1].a}건${loads[0].a - loads[loads.length - 1].a >= 3 ? ' → 자동 배분 권고' : ' → 균형 양호'}
+ · 현장 출장 중인 수의사 4명(15~17시 복귀) — 오후 병성감정 접수는 수의사 05·06 우선 배정
+ · 긴급 PCR은 PCR #2 13–15시 빈 슬롯 활용 권고
 
-5. 권장 조치 (초안)
- · 고위험 상위 2곳: 접촉 차량 21일 이력 조회(역학 접촉 추적) 및 예찰 시료 추가
- · 오후 수거 노선: 긴급 시료 우선 배차(시료 수거 경로 최적화)
- · 본 요약은 가상 데이터와 규칙에 따른 초안이며, 최종 판단은 담당 수의사·방역관이 합니다.`;
+4. 고객 커뮤니케이션
+ · SLA 초과 건 의뢰처에 지연 안내 발송 검토 (포털 알림, 시연)
+
+※ 규칙 기반 자동 요약이며 최종 운영 판단은 검사실 책임자가 합니다.`;
   }
-  function render() {
-    body.innerHTML = kpis() + `<div class="pro-tabs">${PROVS.map(p => `<button class="pro-tab ${S.prov === p ? 'active' : ''}" data-prov="${p}">${p}</button>`).join('')}</div>
-      <div class="pro-grid pro-2"><div class="panel"><div class="panel-head"><div><h2>농장 위험 지도</h2><div class="panel-sub">점을 클릭하면 해당 농장 상세 · 이벤트 발생 시 위치가 깜빡입니다</div></div><span class="pro-chip dark">${S.prov}</span></div>${map()}<div id="cmdFarmCard"></div></div>${feed()}</div>
-      <div class="pro-grid pro-3 pro-row">${throughput()}${mix()}${topRisk()}</div>
-      <div class="pro-grid pro-2e pro-row">${provTable()}${briefPanel()}</div>`;
-    farmCard();
-  }
-  function farmCard() {
-    const el = document.getElementById('cmdFarmCard'); if (!el) return; const f = FARMS.find(x => x.id === S.selected); if (!f) { el.innerHTML = ''; return; }
-    el.innerHTML = `<div class="flag ${tier(f) === 'high' ? 'red' : tier(f) === 'mid' ? 'amber' : 'green'}" style="margin-top:12px"><i>◉</i><div style="flex:1"><b>${esc(f.name)} · ${f.region}</b>${f.type} ${fmt(f.heads)}수 · 합성 위험 ${f.risk} · 방역 점검 ${f.insp}%<div class="pro-inline" style="margin-top:8px"><a class="btn btn-tiny" href="./outbreak.html?farm=${f.id}">확산 시뮬레이션 ↗</a><a class="btn btn-tiny" href="./trace.html?farm=${f.id}">접촉 추적 ↗</a><a class="btn btn-tiny" href="./serology.html">항체가 분석 ↗</a></div></div></div>`;
-  }
-  function tick() {
-    if (!S.playing) return; pushEvent(false);
-    const feedEl = document.getElementById('cmdFeed'); if (!feedEl) return;
-    // partial updates for smoothness
-    const tmp = document.createElement('div'); tmp.innerHTML = feedItem(S.feed[0]); feedEl.prepend(tmp.firstChild); while (feedEl.children.length > 40) feedEl.lastChild.remove();
-    document.getElementById('cmdClock').textContent = tStr(S.clock);
-    const k = document.querySelector('.pro-kpis'); const nk = document.createElement('div'); nk.innerHTML = kpis(); k.replaceWith(nk.firstChild);
-    const m = document.getElementById('cmdMap'); const nm = document.createElement('div'); nm.innerHTML = map(); m.replaceWith(nm.firstChild);
-  }
-  setInterval(tick, 2600);
+  function render() { body.innerHTML = kpis() + pipeline() + `<div class="pro-grid pro-2">${queue()}${feed()}</div>${vets()}<div class="pro-grid pro-2e pro-row">${equip()}${briefPanel()}</div>`; }
+  setInterval(() => { if (!S.playing) return; step(false); render(); }, 3000);
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-farm],[data-prov],button'); if (!t) return;
-    if (t.dataset.farm && !e.target.closest('a')) { S.selected = t.dataset.farm; S.lastPing = t.dataset.farm; const f = FARMS.find(x => x.id === S.selected); if (S.prov !== '전체' && !f.prov.startsWith(S.prov)) S.prov = '전체'; render(); document.getElementById('cmdMap').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-    if (t.dataset.prov) { S.prov = S.prov === t.dataset.prov && t.tagName === 'TR' ? '전체' : t.dataset.prov; render(); return; }
-    if (t.id === 'cmdPlay') { S.playing = !S.playing; t.textContent = S.playing ? '❚❚ 일시정지' : '▶ 재개'; document.querySelector('.live-dot')?.classList.toggle('paused', !S.playing); toast(S.playing ? '가상 실시간 이벤트를 재개합니다.' : '이벤트 스트림을 일시정지했습니다.'); }
-    if (t.id === 'cmdBrief' || t.id === 'cmdBrief2') { S.brief = briefing(); const box = document.getElementById('cmdBriefBox'); box.scrollIntoView({ behavior: 'smooth', block: 'center' }); typewrite(box, S.brief, 9); }
-    if (t.id === 'cmdBriefCopy') { navigator.clipboard?.writeText(S.brief || briefing()).then(() => toast('브리핑을 복사했습니다.')); }
-    if (t.id === 'cmdCsv') { download('BANSUK_situation_farms.csv', csv([['농장ID', '농장명', '지역', '축종', '사육수', '합성위험(가상)', '점검이행률'], ...FARMS.map(f => [f.id, f.name, f.region, f.type, f.heads, f.risk, f.insp])]), 'text/csv;charset=utf-8'); toast('현황 CSV를 내려받았습니다.'); }
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.group) { S.group = t.dataset.group; render(); }
+    if (t.id === 'cmdPlay') { S.playing = !S.playing; t.textContent = S.playing ? '❚❚ 일시정지' : '▶ 재개'; render(); }
+    if (t.id === 'vetBalance') {
+      let moved = 0;
+      S.samples.filter(s => s.stage === 4).forEach(s => { const G = GROUPS[s.group]; const pool = VETS.filter(v => v.spec === G.spec && !FIELD[v.id]); if (pool.length < 2) return; const best = pool.slice().sort((a, b) => vetLoad(a).approvals - vetLoad(b).approvals)[0]; if (best.id !== s.vet && vetLoad(best).approvals + 1 < vetLoad(VETS.find(v => v.id === s.vet)).approvals) { s.vet = best.id; moved++; } });
+      event('blue', '승인 업무 재배분', `전문분야·현재 대기량 기준 ${moved}건 재배정 (시연)`); render(); toast(moved ? `승인 대기 ${moved}건을 전문분야별로 재배분했습니다.` : '이미 업무량이 균형 상태입니다.');
+    }
+    if (t.id === 'cmdBrief' || t.id === 'cmdBrief2') { S.playing = false; document.getElementById('cmdPlay').textContent = '▶ 재개'; S.brief = briefing(); render(); const box = document.getElementById('cmdBriefBox'); box.scrollIntoView({ behavior: 'smooth', block: 'center' }); typewrite(box, S.brief, 9); toast('브리핑을 읽는 동안 스트림을 일시정지했습니다.'); }
+    if (t.id === 'cmdBriefCopy') navigator.clipboard?.writeText(S.brief || briefing()).then(() => toast('브리핑을 복사했습니다.'));
+    if (t.id === 'cmdCsv') { download('BANSUK_lab_queue.csv', csv([['접수번호', '의뢰처', '검사군', '검사항목', '시료수', '긴급', '단계', '경과(분)', 'SLA(시간)', '담당 수의사'], ...S.samples.map(s => [s.id, s.client, s.group, s.item, s.n, s.urgent ? 'Y' : '', STAGES[s.stage], S.clock - s.recv, s.sla / 60, vname(s.vet)])]), 'text/csv;charset=utf-8'); toast('대기열 CSV를 내려받았습니다.'); }
   });
   render();
 })();
