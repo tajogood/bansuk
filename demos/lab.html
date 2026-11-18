@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#091b2a"><meta name="description" content="반석엘티씨 AI·IT 협업 플랫폼의 시연용 데모. 화면에 표시되는 데이터는 모두 가상의 예시입니다."><link rel="icon" href="../favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="./app.css"><title>AI 검사보고서 자동화 | BANSUK AI Demo</title>
 <link rel="stylesheet" href="./experience.css"><script src="./app.js" defer></script><script src="./experience.js" defer></script><style>
-.report-center-launch{position:fixed;z-index:90;right:23px;bottom:22px;display:flex;align-items:center;gap:12px;background:#0d806b;color:#fff;padding:14px 19px;border-radius:13px;box-shadow:0 12px 36px #082d3355;font-family:'Noto Sans KR',sans-serif;font-size:16px;font-weight:800;text-decoration:none;min-height:55px}
-.report-center-launch:hover{background:#07614f;color:#fff;transform:translateY(-2px)}
-.report-center-launch small{font-size:13px;color:#d7fff0;font-weight:600}
-@media(max-width:600px){.report-center-launch{right:12px;bottom:12px;font-size:15px;min-height:52px;padding:11px 13px}.report-center-launch small{display:none}}
-@media print{.report-center-launch{display:none}}
+/* The existing 보고서 초안 tab hosts the report studio. */
+.lab-report-embed{width:100%;min-width:0}
+.lab-report-frame{display:block;width:100%;height:1650px;min-width:0;border:0;background:#f3f6f8;border-radius:12px}
+@media(max-width:600px){.lab-report-frame{border-radius:0}}
 </style></head>
-<body data-app="lab"><div id="root"></div><a href="./reports.html" class="report-center-launch" aria-label="그래프와 표가 포함된 다차원 보고서 생성 및 PDF 다운로드">▤ 보고서 센터 <small>8개 유형 · PDF 저장 ↗</small></a></body>
+<body data-app="lab"><div id="root"></div></body>
 </html>
