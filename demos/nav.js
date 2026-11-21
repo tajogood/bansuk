@@ -21,6 +21,9 @@ window.BANSUK_NAV = {
     ['biorisk', '▥', '차단방역 위험평가'],
     ['cro', '⚗', 'CRO 효능평가 시험관리']
   ],
+  data: [
+    ['farmdata', '▧', '산란계 농장 실데이터 분석']
+  ],
   html: function (current) {
     var link = function (item, i, offset) {
       return '<a class="side-link ' + (item[0] === current ? 'active' : '') + '" href="./' + item[0] + '.html"><span>' + item[1] + '</span><span>' + item[2] + '</span><small>' + String(i + 1 + offset).padStart(2, '0') + '</small></a>';
@@ -29,6 +32,7 @@ window.BANSUK_NAV = {
       this.core.map(function (x, i) { return link(x, i, 0); }).join('') +
       '</nav><div class="side-heading side-heading-new">DIAGNOSTIC LAB · 확장 <em>NEW</em></div><nav class="side-links" aria-label="확장 데모 선택">' +
       this.advanced.map(function (x, i) { return link(x, i, 6); }).join('') + '</nav><div class="side-heading side-heading-new">과거 과제 고도화 <em>NEW</em></div><nav class="side-links" aria-label="과거 과제 고도화 데모">' +
-      this.legacy.map(function (x, i) { return link(x, i, 12); }).join('') + '</nav>';
+      this.legacy.map(function (x, i) { return link(x, i, 12); }).join('') + '</nav><div class="side-heading side-heading-new">실데이터 분석 <em>REAL</em></div><nav class="side-links" aria-label="실데이터 분석">' +
+      this.data.map(function (x, i) { return link(x, i, 15); }).join('') + '</nav>';
   }
 };
